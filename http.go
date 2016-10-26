@@ -11,17 +11,25 @@ import (
 	"time"
 )
 
-func Get(uri string, timeout time.Duration, headers map[string]string) (body []byte, err error) {
+func Get(uri string, timeout time.Duration, headers map[string]string, params map[string]string) (body []byte, err error) {
+	if params != nil {
+		u, _ := url.Parse(uri)
+		values := u.Query()
+		for key, value := range params {
+			values.Set(key, value)
+		}
+		u.RawQuery = values.Encode()
+		uri = u.String()
+	}
 	return sendHttpRequest("GET", uri, timeout, headers, nil)
 }
 
-func Post(uri string, timeout time.Duration, headers map[string]string, postParams map[string]string) (body []byte, err error) {
-	postValues := url.Values{}
-	for key, value := range postParams {
-		postValues.Set(key, value)
+func Post(uri string, timeout time.Duration, headers map[string]string, params map[string]string) (body []byte, err error) {
+	values := url.Values{}
+	for key, value := range params {
+		values.Set(key, value)
 	}
-	postStr := postValues.Encode()
-	return sendHttpRequest("POST", uri, timeout, headers, strings.NewReader(postStr))
+	return sendHttpRequest("POST", uri, timeout, headers, strings.NewReader(values.Encode()))
 }
 
 func PostRaw(uri string, timeout time.Duration, headers map[string]string, content []byte) (body []byte, err error) {
