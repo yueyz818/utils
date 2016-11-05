@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"fmt"
 
 	"io"
 	"io/ioutil"
@@ -61,6 +62,13 @@ func sendHttpRequest(method string, uri string, timeout time.Duration, headers m
 		return
 	}
 	body, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	if g, e := resp.StatusCode, http.StatusOK; g != e {
+		err = fmt.Errorf("http resp code: %d", g)
+		return
+	}
 
 	return
 }
