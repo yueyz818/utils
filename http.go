@@ -13,19 +13,19 @@ import (
 )
 
 type GPP struct {
-	Uri        string
-	Timeout    time.Duration
-	Headers    map[string]string
-	Params     map[string]string
-	RawContent []byte
+	Uri     string
+	Timeout time.Duration
+	Headers map[string]string
+	Params  interface{}
 }
 
 func Get(gpp *GPP) (body []byte, err error) {
 	uri, timeout, headers, params := gpp.Uri, gpp.Timeout, gpp.Headers, gpp.Params
-	if params != nil {
+	switch v := params.(type) {
+	case map[string]string:
 		u, _ := url.Parse(uri)
 		values := u.Query()
-		for key, value := range params {
+		for key, value := range v {
 			values.Set(key, value)
 		}
 		u.RawQuery = values.Encode()
@@ -36,16 +36,20 @@ func Get(gpp *GPP) (body []byte, err error) {
 
 func Post(gpp *GPP) (body []byte, err error) {
 	uri, timeout, headers, params := gpp.Uri, gpp.Timeout, gpp.Headers, gpp.Params
-	values := url.Values{}
-	for key, value := range params {
-		values.Set(key, value)
+	var reader io.Reader
+	switch v := params.(type) {
+	case map[string]string:
+		values := url.Values{}
+		for key, value := range v {
+			values.Set(key, value)
+		}
+		reader = strings.NewReader(values.Encode())
+	case string:
+		reader = strings.NewReader(v)
+	case []byte:
+		reader = bytes.NewReader(v)
 	}
-	return sendHttpRequest("POST", uri, timeout, headers, strings.NewReader(values.Encode()))
-}
-
-func PostRaw(gpp *GPP) (body []byte, err error) {
-	uri, timeout, headers, rawContent := gpp.Uri, gpp.Timeout, gpp.Headers, gpp.RawContent
-	return sendHttpRequest("POST", uri, timeout, headers, bytes.NewReader(rawContent))
+	return sendHttpRequest("POST", uri, timeout, headers, reader)
 }
 
 func sendHttpRequest(
