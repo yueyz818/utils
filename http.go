@@ -12,7 +12,16 @@ import (
 	"time"
 )
 
-func Get(uri string, timeout time.Duration, headers map[string]string, params map[string]string) (body []byte, err error) {
+type GPP struct {
+	Uri        string
+	Timeout    time.Duration
+	Headers    map[string]string
+	Params     map[string]string
+	RawContent []byte
+}
+
+func Get(gpp *GPP) (body []byte, err error) {
+	uri, timeout, headers, params := gpp.Uri, gpp.Timeout, gpp.Headers, gpp.Params
 	if params != nil {
 		u, _ := url.Parse(uri)
 		values := u.Query()
@@ -25,7 +34,8 @@ func Get(uri string, timeout time.Duration, headers map[string]string, params ma
 	return sendHttpRequest("GET", uri, timeout, headers, nil)
 }
 
-func Post(uri string, timeout time.Duration, headers map[string]string, params map[string]string) (body []byte, err error) {
+func Post(gpp *GPP) (body []byte, err error) {
+	uri, timeout, headers, params := gpp.Uri, gpp.Timeout, gpp.Headers, gpp.Params
 	values := url.Values{}
 	for key, value := range params {
 		values.Set(key, value)
@@ -33,11 +43,18 @@ func Post(uri string, timeout time.Duration, headers map[string]string, params m
 	return sendHttpRequest("POST", uri, timeout, headers, strings.NewReader(values.Encode()))
 }
 
-func PostRaw(uri string, timeout time.Duration, headers map[string]string, content []byte) (body []byte, err error) {
-	return sendHttpRequest("POST", uri, timeout, headers, bytes.NewReader(content))
+func PostRaw(gpp *GPP) (body []byte, err error) {
+	uri, timeout, headers, rawContent := gpp.Uri, gpp.Timeout, gpp.Headers, gpp.RawContent
+	return sendHttpRequest("POST", uri, timeout, headers, bytes.NewReader(rawContent))
 }
 
-func sendHttpRequest(method string, uri string, timeout time.Duration, headers map[string]string, bodyReader io.Reader) (body []byte, err error) {
+func sendHttpRequest(
+	method string,
+	uri string,
+	timeout time.Duration,
+	headers map[string]string,
+	bodyReader io.Reader,
+) (body []byte, err error) {
 	req, err := http.NewRequest(method, uri, bodyReader)
 	if err != nil {
 		return
