@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"errors"
+	"log"
 	"net"
 	"reflect"
 	"regexp"
@@ -10,7 +10,7 @@ import (
 )
 
 func RemoveAnnotation(src []byte) []byte {
-	reg := "(?P<nocomment>'(?:[^\\\\']|\\\\.)*'|\"(?:[^\\\\\"]|\\\\.)*\")|(?P<coment>//[^\n]*|/\\*(.|\n)*?\\*/)"
+	reg := `(?P<nocomment>'(?:[^\\']|\\.)*'|"(?:[^\\"]|\\.)*")|(?P<coment>//[^\n]*|/\*(.|\n)*?\*/)`
 	re := regexp.MustCompile(reg)
 	return re.ReplaceAll(src, []byte("${nocomment}"))
 }
@@ -48,60 +48,49 @@ func IsInnerIp(src_ip string) bool {
 	return false
 }
 
-var GetLocalIp = func() func() string {
-	localip := ""
-	return func() string {
-		if localip != "" {
-			return localip
+var LocalIp = func() string {
+	defer func() {
+		if e := recover(); e != nil {
+			log.Println("utils.LocalIp proc error, get localip failed:", e)
 		}
+	}()
 
-		err := func() error {
-			ifaces, err := net.Interfaces()
-			if err != nil {
-				return err
-			}
-			for _, iface := range ifaces {
-				if iface.Flags&net.FlagUp == 0 {
-					continue // interface down
-				}
-				if iface.Flags&net.FlagLoopback != 0 {
-					continue // loopback interface
-				}
-				addrs, err := iface.Addrs()
-				if err != nil {
-					return err
-				}
-				for _, addr := range addrs {
-					var ip net.IP
-					switch v := addr.(type) {
-					case *net.IPNet:
-						ip = v.IP
-					case *net.IPAddr:
-						ip = v.IP
-					}
-					if ip == nil || ip.IsLoopback() {
-						continue
-					}
-					ip = ip.To4()
-					if ip == nil {
-						continue // not an ipv4 address
-					}
-					if IsInnerIp(ip.String()) {
-						localip = ip.String()
-						return nil
-					}
-				}
-			}
-
-			return errors.New("GetLocalIp() fail")
-		}()
-
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		panic(err)
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 {
+			continue // interface down
+		}
+		if iface.Flags&net.FlagLoopback != 0 {
+			continue // loopback interface
+		}
+		addrs, err := iface.Addrs()
 		if err != nil {
 			panic(err)
 		}
-
-		return localip
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+			ip = ip.To4()
+			if ip == nil {
+				continue // not an ipv4 address
+			}
+			if IsInnerIp(ip.String()) {
+				return ip.String()
+			}
+		}
 	}
+	panic("utils.LocalIp failed!")
 }()
 
 func Hash33(src string) int {
