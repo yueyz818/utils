@@ -65,10 +65,12 @@ func sendHttpRequest(
 	}
 	if host, ok := headers["Host"]; ok {
 		req.Host = host
+		delete(headers, "Host")
 	}
 	if connection, ok := headers["Connection"]; ok {
 		if strings.ToLower(connection) == "close" {
 			req.Close = true
+			delete(headers, "Connection")
 		}
 	}
 	for name, value := range headers {
