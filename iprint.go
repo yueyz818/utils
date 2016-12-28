@@ -18,11 +18,9 @@ func val2val(val reflect.Value) reflect.Value {
 }
 
 func obj2json(v interface{}) (ret interface{}) {
-	val := val2val(reflect.ValueOf(v))
-	if !val.IsValid() {
-		return
+	if v == nil {
+		return nil
 	}
-	typ := val.Type()
 
 	if reflect.TypeOf(v).Implements(reflect.TypeOf((*json.Marshaler)(nil)).Elem()) {
 		ret = v
@@ -36,6 +34,12 @@ func obj2json(v interface{}) (ret interface{}) {
 			return
 		}
 	}
+
+	val := val2val(reflect.ValueOf(v))
+	if !val.IsValid() {
+		return
+	}
+	typ := val.Type()
 
 	switch typ.Kind() {
 	case reflect.Slice:
