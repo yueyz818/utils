@@ -49,15 +49,10 @@ func IsInnerIp(src_ip string) bool {
 }
 
 var LocalIp = func() string {
-	defer func() {
-		if e := recover(); e != nil {
-			log.Println("utils.LocalIp proc error, get localip failed:", e)
-		}
-	}()
-
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		panic(err)
+		log.Println("utils.LocalIp error:", err)
+		return ""
 	}
 	for _, iface := range ifaces {
 		if iface.Flags&net.FlagUp == 0 {
@@ -68,7 +63,8 @@ var LocalIp = func() string {
 		}
 		addrs, err := iface.Addrs()
 		if err != nil {
-			panic(err)
+			log.Println("utils.LocalIp error:", err)
+			return ""
 		}
 		for _, addr := range addrs {
 			var ip net.IP
@@ -90,7 +86,8 @@ var LocalIp = func() string {
 			}
 		}
 	}
-	panic("utils.LocalIp failed!")
+	log.Println("utils.LocalIp failed!")
+	return ""
 }()
 
 func Hash33(src string) int {
