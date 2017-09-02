@@ -10,6 +10,11 @@ import (
 	"reflect"
 )
 
+var (
+	IprintEnable = true
+	IprintSimple = true
+)
+
 func val2val(val reflect.Value) reflect.Value {
 	for val.Kind() == reflect.Ptr {
 		val = reflect.Indirect(val)
@@ -79,8 +84,18 @@ func obj2json(v interface{}) (ret interface{}) {
 }
 
 func IprintD(a ...interface{}) {
+	if !IprintEnable {
+		return
+	}
+
+	var bs []byte
+	var err error
 	for _, v := range a {
-		bs, err := json.MarshalIndent(obj2json(v), "", "  ")
+		if IprintSimple {
+			bs, err = json.Marshal(obj2json(v))
+		} else {
+			bs, err = json.MarshalIndent(obj2json(v), "", "  ")
+		}
 		if err != nil {
 			log.Println(err)
 			return
@@ -91,15 +106,27 @@ func IprintD(a ...interface{}) {
 }
 
 func Iprint(a ...interface{}) string {
+	if !IprintEnable {
+		return ""
+	}
+
+	var bs []byte
+	var err error
 	buf := new(bytes.Buffer)
-	for _, v := range a {
-		bs, err := json.MarshalIndent(obj2json(v), "", "  ")
+	for pos, v := range a {
+		if pos > 0 {
+			buf.WriteByte('\n')
+		}
+		if IprintSimple {
+			bs, err = json.Marshal(obj2json(v))
+		} else {
+			bs, err = json.MarshalIndent(obj2json(v), "", "  ")
+		}
 		if err != nil {
 			buf.WriteString(err.Error())
 		} else {
 			buf.Write(bs)
 		}
-		buf.WriteByte('\n')
 	}
 	return buf.String()
 }

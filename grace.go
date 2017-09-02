@@ -21,10 +21,11 @@ type Server struct {
 
 	isGraceful bool
 	waitTime   time.Duration
+	startTime  time.Duration
 	signalChan chan os.Signal
 }
 
-func NewServer(addr string, handler http.Handler, waitTime time.Duration) *Server {
+func NewServer(addr string, handler http.Handler, waitTime, startTime time.Duration) *Server {
 	isGraceful := false
 
 	GRACEFUL_ENV = filepath.Base(os.Args[0]) + "_" + GRACEFUL_ENV
@@ -45,6 +46,7 @@ func NewServer(addr string, handler http.Handler, waitTime time.Duration) *Serve
 		isGraceful: isGraceful,
 		signalChan: make(chan os.Signal),
 		waitTime:   waitTime,
+		startTime:  startTime,
 	}
 }
 
@@ -78,19 +80,26 @@ func (srv *Server) ListenAndServe() (err error) {
 }
 
 func (srv *Server) handleSignal() {
-	signal.Notify(srv.signalChan, syscall.SIGHUP)
-	for {
-		<-srv.signalChan
+	signal.Notify(srv.signalChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	for s := range srv.signalChan {
+		switch s {
+		case syscall.SIGINT, syscall.SIGTERM:
+			ctx, cancel := context.WithTimeout(context.Background(), srv.waitTime)
+			srv.server.Shutdown(ctx)
+			cancel()
+		case syscall.SIGHUP:
+			err := srv.fork()
+			if err != nil {
+				log.Printf("start new process failed, please retry: %v\n", err)
+				continue
+			}
 
-		err := srv.fork()
-		if err != nil {
-			log.Printf("start new process failed, please retry: %v\n", err)
-			continue
+			time.Sleep(srv.startTime)
+
+			ctx, cancel := context.WithTimeout(context.Background(), srv.waitTime)
+			srv.server.Shutdown(ctx)
+			cancel()
 		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), srv.waitTime)
-		srv.server.Shutdown(ctx)
-		cancel()
 		break
 	}
 }
@@ -123,5 +132,10 @@ func (srv *Server) fork() (err error) {
 
 func ListenAndServe(addr string, handler http.Handler) error {
 	waitTime := time.Second * 5
-	return NewServer(addr, handler, waitTime).ListenAndServe()
+	startTime := time.Second
+	return NewServer(addr, handler, waitTime, startTime).ListenAndServe()
+}
+
+func ListenAndServeWithTimeout(addr string, handler http.Handler, waitTime, startTime time.Duration) error {
+	return NewServer(addr, handler, waitTime, startTime).ListenAndServe()
 }
